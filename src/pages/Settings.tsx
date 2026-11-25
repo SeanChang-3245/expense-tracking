@@ -84,7 +84,7 @@ export function SettingsPage({ email }: { email: string }) {
           <button class="row" role="switch" aria-checked={geoOn} onClick={toggleGeo}>
             <span class="row-main">
               <span class="row-title">依位置自動帶入備註</span>
-              <span class="row-sub">記帳時儲存位置，在附近再記帳時帶入上次的備註</span>
+              <span class="row-sub">記帳時儲存位置；在附近再記同一分類時，帶入該分類上次的備註</span>
             </span>
             <span class={'switch' + (geoOn ? ' on' : '')} aria-hidden="true" />
           </button>

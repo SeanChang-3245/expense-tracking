@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { createExpense, findNoteNear, listExpenses } from '../api';
+import { createExpense, findNotesNear, listExpenses } from '../api';
 import { geoEnabled, getPosition, type Position } from '../geo';
 import { useApp } from '../context';
 import { money, sum, today } from '../format';
@@ -14,20 +14,20 @@ export function AddPage() {
   const [todays, setTodays] = useState<Expense[]>([]);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [pos, setPos] = useState<Position | null>(null);
-  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Record<string, string> | null>(null);
 
   // A fresh fix for every new entry (formKey changes after each save).
   useEffect(() => {
     if (!geoEnabled()) return;
     let alive = true;
     setPos(null);
-    setSuggestion(null);
+    setSuggestions(null);
     getPosition().then(async (p) => {
       if (!alive || !p) return;
       setPos(p);
       try {
-        const note = await findNoteNear(p);
-        if (alive) setSuggestion(note);
+        const notes = await findNotesNear(p);
+        if (alive) setSuggestions(notes);
       } catch { /* suggestion is optional */ }
     });
     return () => { alive = false; };
@@ -44,7 +44,7 @@ export function AddPage() {
       <ExpenseForm
         key={formKey}
         submitLabel="記一筆"
-        noteSuggestion={suggestion}
+        noteSuggestions={suggestions}
         onSubmit={async (v) => {
           try {
             await createExpense(pos ? { ...v, latitude: pos.lat, longitude: pos.lng } : v);

@@ -6,10 +6,10 @@ import type { ExpenseInput } from '../types';
 
 const LAST_CAT = 'lastCategoryId';
 
-export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSuggestion }: {
+export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSuggestions }: {
   initial?: ExpenseInput;
-  /** Filled into the note only while the user hasn't typed one. */
-  noteSuggestion?: string | null;
+  /** Per-category note to fill in, only while the user hasn't typed one. */
+  noteSuggestions?: Record<string, string> | null;
   submitLabel: string;
   onSubmit: (v: ExpenseInput) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -33,12 +33,14 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSugg
   const [suggested, setSuggested] = useState(false);
   const noteTouched = useRef(false);
 
+  // Follow the selected category: swap in its nearby note, or drop an
+  // auto-filled note that belonged to another category.
   useEffect(() => {
-    if (noteSuggestion && !noteTouched.current) {
-      setNote(noteSuggestion);
-      setSuggested(true);
-    }
-  }, [noteSuggestion]);
+    if (noteTouched.current || !noteSuggestions) return;
+    const s = noteSuggestions[categoryId];
+    setNote(s ?? '');
+    setSuggested(Boolean(s));
+  }, [noteSuggestions, categoryId]);
 
   const value = Number(amount);
   const valid = amount !== '' && Number.isFinite(value) && value > 0 && Boolean(byId.get(categoryId)) && Boolean(date);
@@ -111,7 +113,7 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSugg
         />
         {suggested && (
           <span class="note-hint">
-            📍 依這附近上次的備註帶入
+            📍 這附近上次記「{byId.get(categoryId)?.name}」的備註
             <button type="button" class="link" onClick={() => {
               noteTouched.current = true;
               setSuggested(false);

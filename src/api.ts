@@ -90,16 +90,16 @@ export async function deleteExpense(id: string) {
 }
 
 /**
- * Note of the most recent expense recorded near `pos` that has a note.
+ * For each category, the note of its most recent expense recorded near `pos`.
  * Bounding-box query in the database, exact distance check here.
  */
-export async function findNoteNear(pos: Position): Promise<string | null> {
+export async function findNotesNear(pos: Position): Promise<Record<string, string>> {
   const dLat = NEARBY_RADIUS_M / 111320;
   const dLng = NEARBY_RADIUS_M / (111320 * Math.cos((pos.lat * Math.PI) / 180));
   const rows = check(
     await supabase
       .from('expenses')
-      .select('note, latitude, longitude')
+      .select('note, category_id, latitude, longitude')
       .not('note', 'is', null)
       .neq('note', '')
       .gte('latitude', pos.lat - dLat)
@@ -107,8 +107,12 @@ export async function findNoteNear(pos: Position): Promise<string | null> {
       .gte('longitude', pos.lng - dLng)
       .lte('longitude', pos.lng + dLng)
       .order('created_at', { ascending: false })
-      .limit(20),
-  ) as { note: string; latitude: number; longitude: number }[];
-  const hit = rows.find((r) => distanceM(pos.lat, pos.lng, r.latitude, r.longitude) <= NEARBY_RADIUS_M);
-  return hit?.note ?? null;
+      .limit(200),
+  ) as { note: string; category_id: string; latitude: number; longitude: number }[];
+  const out: Record<string, string> = {};
+  for (const r of rows) {
+    if (r.category_id in out) continue; // rows are newest first
+    if (distanceM(pos.lat, pos.lng, r.latitude, r.longitude) <= NEARBY_RADIUS_M) out[r.category_id] = r.note;
+  }
+  return out;
 }
