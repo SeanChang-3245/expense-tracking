@@ -5,6 +5,7 @@ import { addDays, daysBetween, getPeriod, money, parseYmd, sum, today, type Peri
 import type { Expense } from '../types';
 import { TrendChart } from '../components/TrendChart';
 import { ExpenseRow } from '../components/ExpenseRow';
+import { EditExpenseSheet } from '../components/EditExpenseSheet';
 import { Dot } from '../components/CategoryDot';
 
 const KINDS: { id: PeriodKind; label: string; unit: string }[] = [
@@ -19,6 +20,8 @@ export function StatsPage() {
   const [offset, setOffset] = useState(0);
   const [focus, setFocus] = useState<string | null>(null);
   const [rows, setRows] = useState<Expense[] | null>(null);
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const period = useMemo(() => getPeriod(kind, offset), [kind, offset]);
   const prev = useMemo(() => getPeriod(kind, offset - 1), [kind, offset]);
@@ -30,7 +33,7 @@ export function StatsPage() {
       .then((r) => alive && setRows(r))
       .catch((e) => { toast(`載入失敗：${(e as Error).message}`); alive && setRows([]); });
     return () => { alive = false; };
-  }, [period, prev, toast]);
+  }, [period, prev, toast, reloadKey]);
 
   const t = today();
   const totalDays = daysBetween(period.start, period.end) + 1;
@@ -153,7 +156,7 @@ export function StatsPage() {
               <div class="card list">
                 {stats.top.map((e) => {
                   const d = parseYmd(e.spent_on);
-                  return <ExpenseRow key={e.id} e={e} meta={`${d.getMonth() + 1}/${d.getDate()}`} />;
+                  return <ExpenseRow key={e.id} e={e} meta={`${d.getMonth() + 1}/${d.getDate()}`} onClick={() => setEditing(e)} />;
                 })}
               </div>
             </section>
@@ -161,6 +164,9 @@ export function StatsPage() {
 
           {stats.count === 0 && <p class="muted center-pad">這段期間沒有記錄</p>}
         </>
+      )}
+      {editing && (
+        <EditExpenseSheet expense={editing} onClose={() => setEditing(null)} onDone={() => setReloadKey((k) => k + 1)} />
       )}
     </>
   );

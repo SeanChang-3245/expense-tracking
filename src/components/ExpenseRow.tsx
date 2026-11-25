@@ -17,6 +17,7 @@ export function ExpenseRow({ e, onClick, meta }: { e: Expense; onClick?: () => v
         </span>
       </span>
       <span class="row-amount">{money(e.amount)}</span>
+      {onClick && <span class="chevron" aria-hidden="true">›</span>}
     </button>
   );
 }

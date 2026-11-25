@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { deleteExpense, listExpenses, updateExpense } from '../api';
+import { listExpenses } from '../api';
 import { useApp } from '../context';
 import { dayLabel, getPeriod, money, sum } from '../format';
 import type { Expense } from '../types';
-import { ExpenseForm } from '../components/ExpenseForm';
 import { ExpenseRow } from '../components/ExpenseRow';
-import { Sheet } from '../components/Sheet';
+import { EditExpenseSheet } from '../components/EditExpenseSheet';
 import { Dot } from '../components/CategoryDot';
 
 export function ListPage() {
@@ -88,28 +87,7 @@ export function ListPage() {
         ))
       )}
 
-      {editing && (
-        <Sheet title="編輯記錄" onClose={() => setEditing(null)}>
-          <ExpenseForm
-            initial={editing}
-            submitLabel="儲存"
-            onSubmit={async (v) => {
-              try { await updateExpense(editing.id, v); }
-              catch (e) { toast(`儲存失敗：${(e as Error).message}`); throw e; }
-              toast('已更新');
-              setEditing(null);
-              load();
-            }}
-            onDelete={async () => {
-              try { await deleteExpense(editing.id); }
-              catch (e) { toast(`刪除失敗：${(e as Error).message}`); throw e; }
-              toast('已刪除');
-              setEditing(null);
-              load();
-            }}
-          />
-        </Sheet>
-      )}
+      {editing && <EditExpenseSheet expense={editing} onClose={() => setEditing(null)} onDone={load} />}
     </>
   );
 }

@@ -6,11 +6,13 @@ import { money, sum, today } from '../format';
 import type { Expense } from '../types';
 import { ExpenseForm } from '../components/ExpenseForm';
 import { ExpenseRow } from '../components/ExpenseRow';
+import { EditExpenseSheet } from '../components/EditExpenseSheet';
 
 export function AddPage() {
   const { byId, toast } = useApp();
   const [formKey, setFormKey] = useState(0);
   const [todays, setTodays] = useState<Expense[]>([]);
+  const [editing, setEditing] = useState<Expense | null>(null);
   const [pos, setPos] = useState<Position | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
 
@@ -62,10 +64,11 @@ export function AddPage() {
             <span class="muted">{money(sum(todays))}</span>
           </div>
           <div class="card list">
-            {todays.map((e) => <ExpenseRow key={e.id} e={e} />)}
+            {todays.map((e) => <ExpenseRow key={e.id} e={e} onClick={() => setEditing(e)} />)}
           </div>
         </section>
       )}
+      {editing && <EditExpenseSheet expense={editing} onClose={() => setEditing(null)} onDone={loadToday} />}
     </>
   );
 }
