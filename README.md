@@ -5,6 +5,7 @@
 - **記帳**：輸入金額、選分類、加備註，日期預設今天
 - **明細**：依月份瀏覽，可依分類篩選、搜尋備註，點一下即可編輯或刪除
 - **分析**：週／月／年總支出、與上期同期比較、分類占比、每日（每月）趨勢、最大筆支出；點分類可聚焦
+- **位置帶入備註**：記帳時儲存 GPS 位置；之後在 100 公尺內再記帳，會自動帶入那附近最近一次的備註（可在設定關閉）
 - **設定**：自訂分類（名稱、emoji、顏色、排序、隱藏）、匯出 CSV
 
 技術：Vite + Preact + TypeScript，Supabase（Postgres + Auth + Row Level Security）。
@@ -17,8 +18,10 @@
 2. **SQL Editor** → 貼上 [`supabase/schema.sql`](supabase/schema.sql) 全部內容並執行。
 3. **Authentication → Users → Add user**：用你的 email + 密碼建立帳號，勾選 *Auto Confirm User*。
 4. **Authentication → Sign In / Providers**：關閉 *Allow new users to sign up*，這樣只有你能登入。
-5. **Project Settings → API**：記下 *Project URL* 與 *anon / publishable key*。
-   （這把 key 本來就設計成可以公開放在前端；資料安全由 RLS 保護。）
+5. 取得兩個值（也可以點專案首頁上方的 **Connect** 按鈕一次看到）：
+   - **Project URL**：`https://<project-ref>.supabase.co`，`<project-ref>` 就是後台網址 `supabase.com/dashboard/project/<project-ref>` 最後那串
+   - **Key**：**Project Settings → API Keys** 的 *publishable key*（`sb_publishable_…`），或 Legacy 分頁的 `anon` key
+   （這把 key 本來就設計成可以公開放在前端；資料安全由 RLS 保護。不要用 `secret` / `service_role`。）
 
 ### 2. GitHub
 
@@ -39,7 +42,3 @@ cp .env.example .env.local   # 填入 Supabase URL 與 key
 npm install
 npm run dev
 ```
-
-## 之後的規劃
-
-- **定位快速填備註**：`expenses` 表已預留 `latitude` / `longitude`。之後用瀏覽器 Geolocation API 取得位置，再查附近店家（例如 Google Places 或 OpenStreetMap），列出候選讓你一點就填入備註。

@@ -23,4 +23,6 @@ export type ExpenseInput = {
   category_id: string;
   note: string | null;
   spent_on: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };

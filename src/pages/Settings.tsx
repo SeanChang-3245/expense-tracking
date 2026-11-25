@@ -3,6 +3,7 @@ import { countExpensesInCategory, createCategory, deleteCategory, listExpenses, 
 import { useApp } from '../context';
 import { supabase } from '../supabase';
 import { today } from '../format';
+import { geoEnabled, getPosition, setGeoEnabled } from '../geo';
 import type { Category } from '../types';
 import { Sheet } from '../components/Sheet';
 import { Dot } from '../components/CategoryDot';
@@ -13,6 +14,15 @@ export function SettingsPage({ email }: { email: string }) {
   const { categories, byId, reloadCategories, toast } = useApp();
   const [editing, setEditing] = useState<Category | 'new' | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [geoOn, setGeoOn] = useState(geoEnabled);
+
+  const toggleGeo = async () => {
+    const next = !geoOn;
+    setGeoEnabled(next);
+    setGeoOn(next);
+    // Turning it on asks for permission right away, so the first entry isn't delayed.
+    if (next && !(await getPosition())) toast('無法取得位置，請確認已允許定位權限');
+  };
 
   const move = async (i: number, dir: -1 | 1) => {
     const order = [...categories];
@@ -65,6 +75,19 @@ export function SettingsPage({ email }: { email: string }) {
               </span>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>位置</h2></div>
+        <div class="card list">
+          <button class="row" role="switch" aria-checked={geoOn} onClick={toggleGeo}>
+            <span class="row-main">
+              <span class="row-title">依位置自動帶入備註</span>
+              <span class="row-sub">記帳時儲存位置，在附近再記帳時帶入上次的備註</span>
+            </span>
+            <span class={'switch' + (geoOn ? ' on' : '')} aria-hidden="true" />
+          </button>
         </div>
       </section>
 

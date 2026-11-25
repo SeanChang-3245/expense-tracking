@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { distanceM, NEARBY_RADIUS_M, type Position } from './geo';
 import type { Category, Expense, ExpenseInput } from './types';
 
 const DEFAULT_CATEGORIES: Pick<Category, 'name' | 'emoji' | 'color'>[] = [
@@ -86,4 +87,28 @@ export async function updateExpense(id: string, e: ExpenseInput) {
 
 export async function deleteExpense(id: string) {
   check(await supabase.from('expenses').delete().eq('id', id));
+}
+
+/**
+ * Note of the most recent expense recorded near `pos` that has a note.
+ * Bounding-box query in the database, exact distance check here.
+ */
+export async function findNoteNear(pos: Position): Promise<string | null> {
+  const dLat = NEARBY_RADIUS_M / 111320;
+  const dLng = NEARBY_RADIUS_M / (111320 * Math.cos((pos.lat * Math.PI) / 180));
+  const rows = check(
+    await supabase
+      .from('expenses')
+      .select('note, latitude, longitude')
+      .not('note', 'is', null)
+      .neq('note', '')
+      .gte('latitude', pos.lat - dLat)
+      .lte('latitude', pos.lat + dLat)
+      .gte('longitude', pos.lng - dLng)
+      .lte('longitude', pos.lng + dLng)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ) as { note: string; latitude: number; longitude: number }[];
+  const hit = rows.find((r) => distanceM(pos.lat, pos.lng, r.latitude, r.longitude) <= NEARBY_RADIUS_M);
+  return hit?.note ?? null;
 }

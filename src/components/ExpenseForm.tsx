@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useApp } from '../context';
 import { addDays, today } from '../format';
 import { load, save } from '../storage';
@@ -6,8 +6,10 @@ import type { ExpenseInput } from '../types';
 
 const LAST_CAT = 'lastCategoryId';
 
-export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete }: {
+export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSuggestion }: {
   initial?: ExpenseInput;
+  /** Filled into the note only while the user hasn't typed one. */
+  noteSuggestion?: string | null;
   submitLabel: string;
   onSubmit: (v: ExpenseInput) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -28,6 +30,15 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete }: {
   const [note, setNote] = useState(initial?.note ?? '');
   const [date, setDate] = useState(initial?.spent_on ?? today());
   const [busy, setBusy] = useState(false);
+  const [suggested, setSuggested] = useState(false);
+  const noteTouched = useRef(false);
+
+  useEffect(() => {
+    if (noteSuggestion && !noteTouched.current) {
+      setNote(noteSuggestion);
+      setSuggested(true);
+    }
+  }, [noteSuggestion]);
 
   const value = Number(amount);
   const valid = amount !== '' && Number.isFinite(value) && value > 0 && Boolean(byId.get(categoryId)) && Boolean(date);
@@ -84,15 +95,31 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete }: {
         ))}
       </div>
 
-      <input
-        class="input"
-        type="text"
-        placeholder="備註（選填）"
-        aria-label="備註"
-        maxLength={100}
-        value={note}
-        onInput={(e) => setNote((e.target as HTMLInputElement).value)}
-      />
+      <div class="note-field">
+        <input
+          class="input"
+          type="text"
+          placeholder="備註（選填）"
+          aria-label="備註"
+          maxLength={100}
+          value={note}
+          onInput={(e) => {
+            noteTouched.current = true;
+            setSuggested(false);
+            setNote((e.target as HTMLInputElement).value);
+          }}
+        />
+        {suggested && (
+          <span class="note-hint">
+            📍 依這附近上次的備註帶入
+            <button type="button" class="link" onClick={() => {
+              noteTouched.current = true;
+              setSuggested(false);
+              setNote('');
+            }}>清除</button>
+          </span>
+        )}
+      </div>
 
       <div class="date-row">
         <button type="button" class={'pill' + (date === t ? ' on' : '')} onClick={() => setDate(t)}>今天</button>
