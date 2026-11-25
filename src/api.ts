@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { distanceM, NEARBY_RADIUS_M, type Position } from './geo';
+import { distanceM, NEARBY_RADIUS_M, SAME_PLACE_M, type Position } from './geo';
 import type { Category, Expense, ExpenseInput } from './types';
 
 const DEFAULT_CATEGORIES: Pick<Category, 'name' | 'emoji' | 'color'>[] = [
@@ -90,7 +90,9 @@ export async function deleteExpense(id: string) {
 }
 
 /**
- * For each category, the note of its most recent expense recorded near `pos`.
+ * For each category: among its expenses within NEARBY_RADIUS_M of `pos`, find
+ * the closest place, then return the newest note recorded at that place
+ * (records within SAME_PLACE_M of the closest one).
  * Bounding-box query in the database, exact distance check here.
  */
 export async function findNotesNear(pos: Position): Promise<Record<string, string>> {
@@ -107,12 +109,23 @@ export async function findNotesNear(pos: Position): Promise<Record<string, strin
       .gte('longitude', pos.lng - dLng)
       .lte('longitude', pos.lng + dLng)
       .order('created_at', { ascending: false })
-      .limit(200),
+      .limit(500),
   ) as { note: string; category_id: string; latitude: number; longitude: number }[];
-  const out: Record<string, string> = {};
+
+  type Hit = { note: string; lat: number; lng: number; d: number };
+  const byCat = new Map<string, Hit[]>(); // each list stays newest first
   for (const r of rows) {
-    if (r.category_id in out) continue; // rows are newest first
-    if (distanceM(pos.lat, pos.lng, r.latitude, r.longitude) <= NEARBY_RADIUS_M) out[r.category_id] = r.note;
+    const d = distanceM(pos.lat, pos.lng, r.latitude, r.longitude);
+    if (d > NEARBY_RADIUS_M) continue;
+    if (!byCat.has(r.category_id)) byCat.set(r.category_id, []);
+    byCat.get(r.category_id)!.push({ note: r.note, lat: r.latitude, lng: r.longitude, d });
+  }
+
+  const out: Record<string, string> = {};
+  for (const [cat, hits] of byCat) {
+    const nearest = hits.reduce((a, b) => (b.d < a.d ? b : a));
+    const newestThere = hits.find((h) => distanceM(h.lat, h.lng, nearest.lat, nearest.lng) <= SAME_PLACE_M)!;
+    out[cat] = newestThere.note;
   }
   return out;
 }

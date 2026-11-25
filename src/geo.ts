@@ -6,6 +6,8 @@ export type Position = { lat: number; lng: number; accuracy: number };
 export const MAX_ACCURACY_M = 150;
 /** How close a past expense must be for its note to be suggested. */
 export const NEARBY_RADIUS_M = 100;
+/** Records this close to each other count as the same place (absorbs GPS jitter). */
+export const SAME_PLACE_M = 30;
 
 const PREF_KEY = 'geoNotes';
 export const geoEnabled = () => load(PREF_KEY) !== 'off';
