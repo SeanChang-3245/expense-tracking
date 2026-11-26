@@ -142,3 +142,16 @@ export async function listExpenseDays(): Promise<Set<string>> {
     if (rows.length < PAGE) return days;
   }
 }
+
+export async function listNoSpendDays(): Promise<Set<string>> {
+  const rows = check(await supabase.from('no_spend_days').select('day')) as { day: string }[];
+  return new Set(rows.map((r) => r.day));
+}
+
+export async function markNoSpend(day: string) {
+  check(await supabase.from('no_spend_days').upsert({ day }, { onConflict: 'user_id,day', ignoreDuplicates: true }));
+}
+
+export async function unmarkNoSpend(day: string) {
+  check(await supabase.from('no_spend_days').delete().eq('day', day));
+}

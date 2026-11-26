@@ -259,10 +259,14 @@ h2 { font-size: 14px; font-weight: 600; margin: 0; color: var(--ink-2); }
 
 /* streak */
 .streak {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  font-size: 14px; padding: 8px 12px; margin-bottom: 4px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 14px; padding: 10px 12px; margin-bottom: 4px;
   border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 1px var(--ring);
 }
+.streak-top, .streak-sub { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.streak-sub { font-size: 13px; }
+.streak-sub .pill { font-size: 13px; padding: 4px 10px; }
+.streak-sub .link { font-size: 13px; text-decoration: underline; }
 .streak-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .streak-flame { font-size: 18px; line-height: 1; }
 .streak:not(.done) .streak-flame { filter: grayscale(1); opacity: .6; }

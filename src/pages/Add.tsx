@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { createExpense, findNotesNear, listExpenseDays, listExpenses } from '../api';
+import { createExpense, findNotesNear, listExpenseDays, listExpenses, listNoSpendDays, markNoSpend, unmarkNoSpend } from '../api';
 import { computeStreak } from '../streak';
 import { StreakBar } from '../components/StreakBar';
 import { geoEnabled, getPosition, type Position } from '../geo';
@@ -18,6 +18,8 @@ export function AddPage() {
   const [pos, setPos] = useState<Position | null>(null);
   const [suggestions, setSuggestions] = useState<Record<string, string> | null>(null);
   const [days, setDays] = useState<Set<string> | null>(null);
+  const [noSpend, setNoSpend] = useState<Set<string>>(new Set());
+  const [marking, setMarking] = useState(false);
 
   // A fresh fix for every new entry (formKey changes after each save).
   useEffect(() => {
@@ -40,12 +42,40 @@ export function AddPage() {
     const t = today();
     try { setTodays(await listExpenses(t, t)); } catch { /* non-critical */ }
     try { setDays(await listExpenseDays()); } catch { /* non-critical */ }
+    // Missing table (schema not updated yet) just means no marked days.
+    try { setNoSpend(await listNoSpendDays()); } catch { /* non-critical */ }
   }, []);
+
+  const loggedDays = days && new Set([...days, ...noSpend]);
+
+  const toggleNoSpend = async (on: boolean) => {
+    const t = today();
+    setMarking(true);
+    try {
+      if (on) await markNoSpend(t); else await unmarkNoSpend(t);
+      const next = new Set(noSpend);
+      if (on) next.add(t); else next.delete(t);
+      setNoSpend(next);
+      if (on && days) toast(`已記下今天沒花錢 · 🔥 連續 ${computeStreak(new Set([...days, ...next]), t).current} 天`);
+    } catch {
+      toast('標記失敗：請確認已在 Supabase 執行最新的 schema.sql');
+    }
+    setMarking(false);
+  };
   useEffect(() => { loadToday(); }, [loadToday]);
 
   return (
     <>
-      {days && <StreakBar streak={computeStreak(days, today())} />}
+      {loggedDays && (
+        <StreakBar
+          streak={computeStreak(loggedDays, today())}
+          hasExpenseToday={days!.has(today())}
+          noSpendToday={noSpend.has(today())}
+          busy={marking}
+          onMarkNoSpend={() => toggleNoSpend(true)}
+          onUnmarkNoSpend={() => toggleNoSpend(false)}
+        />
+      )}
       <ExpenseForm
         key={formKey}
         submitLabel="記一筆"
@@ -58,10 +88,10 @@ export function AddPage() {
             throw e;
           }
           let msg = `已記下 ${money(v.amount)} · ${byId.get(v.category_id)?.name ?? ''}`;
-          if (days) {
+          if (loggedDays) {
             const t = today();
-            const before = computeStreak(days, t);
-            const after = computeStreak(new Set(days).add(v.spent_on), t);
+            const before = computeStreak(loggedDays, t);
+            const after = computeStreak(new Set(loggedDays).add(v.spent_on), t);
             if (after.current > before.current && after.loggedToday) msg += ` · 🔥 連續 ${after.current} 天`;
           }
           toast(msg);

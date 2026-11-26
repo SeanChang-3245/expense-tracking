@@ -1,5 +1,6 @@
 -- 記帳 App 資料庫結構
--- 在 Supabase Dashboard → SQL Editor 貼上整份執行一次即可。
+-- 在 Supabase Dashboard → SQL Editor 貼上整份執行。
+-- 可以重複執行：已存在的資料表與資料不會受影響，更新版本後再跑一次即可補上新的資料表。
 
 -- ── 分類（一筆支出只屬於一個分類）────────────────────────────
 create table if not exists public.categories (
@@ -51,3 +52,21 @@ create policy "own expenses" on public.expenses
 
 grant select, insert, update, delete on public.categories to authenticated;
 grant select, insert, update, delete on public.expenses   to authenticated;
+
+-- ── 沒有花費的日子（讓連續記帳天數不會因為沒花錢而中斷）─────────
+create table if not exists public.no_spend_days (
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  day         date not null,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, day)
+);
+
+alter table public.no_spend_days enable row level security;
+
+drop policy if exists "own no-spend days" on public.no_spend_days;
+create policy "own no-spend days" on public.no_spend_days
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+grant select, insert, delete on public.no_spend_days to authenticated;
