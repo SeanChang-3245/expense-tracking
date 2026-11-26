@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Session } from '@supabase/supabase-js';
 import { isConfigured, supabase } from './supabase';
-import { listCategories } from './api';
+import { listCategories, loadSharing, type Sharing } from './api';
 import { Ctx } from './context';
 import type { Category } from './types';
 import { Login } from './pages/Login';
@@ -54,12 +54,13 @@ export function App() {
   }
   if (session === undefined) return <div class="center-screen muted">載入中…</div>;
   if (!session) return <Login />;
-  return <Main email={session.user.email ?? ''} />;
+  return <Main me={session.user.id} email={session.user.email ?? ''} />;
 }
 
-function Main({ email }: { email: string }) {
+function Main({ me, email }: { me: string; email: string }) {
   const [tab, setTab] = useHashTab();
   const [categories, setCategories] = useState<Category[] | null>(null);
+  const [sharing, setSharing] = useState<Sharing>({ canView: [], viewers: [], myName: null });
   const [error, setError] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimer = useRef<number>(0);
@@ -72,23 +73,32 @@ function Main({ email }: { email: string }) {
 
   const reloadCategories = useCallback(async () => {
     try {
-      setCategories(await listCategories());
+      setCategories(await listCategories(me, true));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [me]);
 
-  useEffect(() => { reloadCategories(); }, [reloadCategories]);
+  // Sharing is optional: without it (or before the schema update) the app works solo.
+  const reloadSharing = useCallback(async () => {
+    try { setSharing(await loadSharing(me)); } catch { /* keep solo */ }
+  }, [me]);
+
+  useEffect(() => { reloadCategories(); reloadSharing(); }, [reloadCategories, reloadSharing]);
 
   const ctx = useMemo(
     () => ({
+      me,
+      email,
       categories: categories ?? [],
       byId: new Map((categories ?? []).map((c) => [c.id, c])),
       reloadCategories,
+      sharing,
+      reloadSharing,
       toast,
     }),
-    [categories, reloadCategories, toast],
+    [me, email, categories, reloadCategories, sharing, reloadSharing, toast],
   );
 
   return (
@@ -108,7 +118,7 @@ function Main({ email }: { email: string }) {
         ) : tab === 'stats' ? (
           <StatsPage />
         ) : (
-          <SettingsPage email={email} />
+          <SettingsPage />
         )}
       </main>
       <nav class="tabbar">

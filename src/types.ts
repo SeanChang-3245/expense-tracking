@@ -9,13 +9,13 @@ export type Category = {
 
 export type Expense = {
   id: string;
+  user_id: string;
   amount: number;
   category_id: string;
   note: string | null;
   spent_on: string; // YYYY-MM-DD
+  private: boolean;
   created_at: string;
-  latitude: number | null;
-  longitude: number | null;
 };
 
 export type ExpenseInput = {
@@ -23,6 +23,9 @@ export type ExpenseInput = {
   category_id: string;
   note: string | null;
   spent_on: string;
-  latitude?: number | null;
-  longitude?: number | null;
+  private: boolean;
 };
+
+export type Person = { id: string; name: string };
+
+export type Streak = { current: number; longest: number; loggedToday: boolean };

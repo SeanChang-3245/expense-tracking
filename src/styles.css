@@ -271,3 +271,20 @@ h2 { font-size: 14px; font-weight: 600; margin: 0; color: var(--ink-2); }
 .streak-flame { font-size: 18px; line-height: 1; }
 .streak:not(.done) .streak-flame { filter: grayscale(1); opacity: .6; }
 .streak-best { white-space: nowrap; font-size: 13px; }
+
+/* sharing */
+.person-switch { margin-bottom: 8px; }
+.private-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  font-size: 14px; color: var(--ink-2); padding: 2px 4px;
+}
+.private-toggle .switch { margin-left: auto; }
+.private-toggle.on { color: var(--ink); }
+.switch.sm { width: 36px; height: 22px; }
+.switch.sm::after { width: 16px; height: 16px; }
+.switch.sm.on::after { transform: translateX(14px); }
+.streak-others { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; padding-top: 6px; border-top: 1px solid var(--line); }
+.streak-other { display: inline-flex; align-items: center; gap: 4px; }
+.streak-other.pending .streak-flame-sm { filter: grayscale(1); opacity: .6; }
+.name-row .row-main { gap: 2px; }
+.plain-input { border: 0; outline: none; background: none; padding: 0; width: 100%; }

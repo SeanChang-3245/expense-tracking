@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { createExpense, findNotesNear, listExpenseDays, listExpenses, listNoSpendDays, markNoSpend, unmarkNoSpend } from '../api';
-import { computeStreak } from '../streak';
-import { StreakBar } from '../components/StreakBar';
+import { createExpense, findNotesNear, getStreak, isNoSpendDay, listExpenses, markNoSpend, unmarkNoSpend } from '../api';
 import { geoEnabled, getPosition, type Position } from '../geo';
 import { useApp } from '../context';
 import { money, sum, today } from '../format';
-import type { Expense } from '../types';
+import type { Expense, Person, Streak } from '../types';
 import { ExpenseForm } from '../components/ExpenseForm';
 import { ExpenseRow } from '../components/ExpenseRow';
 import { EditExpenseSheet } from '../components/EditExpenseSheet';
+import { StreakBar } from '../components/StreakBar';
 
 export function AddPage() {
-  const { byId, toast } = useApp();
+  const { me, byId, sharing, toast } = useApp();
   const [formKey, setFormKey] = useState(0);
   const [todays, setTodays] = useState<Expense[]>([]);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [pos, setPos] = useState<Position | null>(null);
   const [suggestions, setSuggestions] = useState<Record<string, string> | null>(null);
-  const [days, setDays] = useState<Set<string> | null>(null);
-  const [noSpend, setNoSpend] = useState<Set<string>>(new Set());
+  const [streak, setStreak] = useState<Streak | null>(null);
+  const [others, setOthers] = useState<{ person: Person; streak: Streak }[]>([]);
+  const [noSpendToday, setNoSpendToday] = useState(false);
   const [marking, setMarking] = useState(false);
 
   // A fresh fix for every new entry (formKey changes after each save).
@@ -38,39 +38,44 @@ export function AddPage() {
     return () => { alive = false; };
   }, [formKey]);
 
-  const loadToday = useCallback(async () => {
+  /** Reloads today's list and streaks; returns my new streak. */
+  const refresh = useCallback(async (): Promise<Streak | null> => {
     const t = today();
-    try { setTodays(await listExpenses(t, t)); } catch { /* non-critical */ }
-    try { setDays(await listExpenseDays()); } catch { /* non-critical */ }
-    // Missing table (schema not updated yet) just means no marked days.
-    try { setNoSpend(await listNoSpendDays()); } catch { /* non-critical */ }
-  }, []);
-
-  const loggedDays = days && new Set([...days, ...noSpend]);
+    let mine: Streak | null = null;
+    await Promise.all([
+      listExpenses(me, t, t).then(setTodays).catch(() => {}),
+      getStreak(me, t).then((s) => { mine = s; setStreak(s); }).catch(() => {}),
+      isNoSpendDay(me, t).then(setNoSpendToday).catch(() => {}),
+      Promise.all(sharing.canView.map(async (person) => {
+        const s = await getStreak(person.id, t).catch(() => null);
+        return s && { person, streak: s };
+      })).then((r) => setOthers(r.filter((x): x is { person: Person; streak: Streak } => Boolean(x)))),
+    ]);
+    return mine;
+  }, [me, sharing]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const toggleNoSpend = async (on: boolean) => {
     const t = today();
     setMarking(true);
     try {
-      if (on) await markNoSpend(t); else await unmarkNoSpend(t);
-      const next = new Set(noSpend);
-      if (on) next.add(t); else next.delete(t);
-      setNoSpend(next);
-      if (on && days) toast(`已記下今天沒花錢 · 🔥 連續 ${computeStreak(new Set([...days, ...next]), t).current} 天`);
+      if (on) await markNoSpend(t); else await unmarkNoSpend(me, t);
+      const s = await refresh();
+      if (on && s) toast(`已記下今天沒花錢 · 🔥 連續 ${s.current} 天`);
     } catch {
       toast('標記失敗：請確認已在 Supabase 執行最新的 schema.sql');
     }
     setMarking(false);
   };
-  useEffect(() => { loadToday(); }, [loadToday]);
 
   return (
     <>
-      {loggedDays && (
+      {streak && (
         <StreakBar
-          streak={computeStreak(loggedDays, today())}
-          hasExpenseToday={days!.has(today())}
-          noSpendToday={noSpend.has(today())}
+          streak={streak}
+          others={others}
+          hasExpenseToday={todays.length > 0}
+          noSpendToday={noSpendToday}
           busy={marking}
           onMarkNoSpend={() => toggleNoSpend(true)}
           onUnmarkNoSpend={() => toggleNoSpend(false)}
@@ -82,21 +87,17 @@ export function AddPage() {
         noteSuggestions={suggestions}
         onSubmit={async (v) => {
           try {
-            await createExpense(pos ? { ...v, latitude: pos.lat, longitude: pos.lng } : v);
+            await createExpense(v, pos);
           } catch (e) {
             toast(`儲存失敗：${(e as Error).message}`);
             throw e;
           }
-          let msg = `已記下 ${money(v.amount)} · ${byId.get(v.category_id)?.name ?? ''}`;
-          if (loggedDays) {
-            const t = today();
-            const before = computeStreak(loggedDays, t);
-            const after = computeStreak(new Set(loggedDays).add(v.spent_on), t);
-            if (after.current > before.current && after.loggedToday) msg += ` · 🔥 連續 ${after.current} 天`;
-          }
-          toast(msg);
           setFormKey((k) => k + 1);
-          loadToday();
+          const before = streak;
+          const after = await refresh();
+          let msg = `已記下 ${money(v.amount)} · ${byId.get(v.category_id)?.name ?? ''}`;
+          if (before && after && after.current > before.current && after.loggedToday) msg += ` · 🔥 連續 ${after.current} 天`;
+          toast(msg);
         }}
       />
       {todays.length > 0 && (
@@ -110,7 +111,7 @@ export function AddPage() {
           </div>
         </section>
       )}
-      {editing && <EditExpenseSheet expense={editing} onClose={() => setEditing(null)} onDone={loadToday} />}
+      {editing && <EditExpenseSheet expense={editing} onClose={() => setEditing(null)} onDone={refresh} />}
     </>
   );
 }

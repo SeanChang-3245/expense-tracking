@@ -14,7 +14,7 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSugg
   onSubmit: (v: ExpenseInput) => Promise<void>;
   onDelete?: () => Promise<void>;
 }) {
-  const { categories, byId } = useApp();
+  const { categories, byId, sharing } = useApp();
   const visible = useMemo(
     () => categories.filter((c) => !c.archived || c.id === initial?.category_id),
     [categories, initial],
@@ -29,6 +29,7 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSugg
   const [categoryId, setCategoryId] = useState(defaultCat);
   const [note, setNote] = useState(initial?.note ?? '');
   const [date, setDate] = useState(initial?.spent_on ?? today());
+  const [isPrivate, setIsPrivate] = useState(initial?.private ?? false);
   const [busy, setBusy] = useState(false);
   const [suggested, setSuggested] = useState(false);
   const noteTouched = useRef(false);
@@ -55,6 +56,7 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSugg
         category_id: categoryId,
         note: note.trim() || null,
         spent_on: date,
+        private: isPrivate,
       });
       save(LAST_CAT, categoryId);
     } finally {
@@ -135,6 +137,17 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onDelete, noteSugg
           onInput={(e) => setDate((e.target as HTMLInputElement).value)}
         />
       </div>
+
+      {(sharing.viewers.length > 0 || isPrivate) && (
+        <button type="button" role="switch" aria-checked={isPrivate} class={'private-toggle' + (isPrivate ? ' on' : '')}
+          onClick={() => setIsPrivate(!isPrivate)}>
+          <span>{isPrivate ? '🔒' : '👀'}</span>
+          {isPrivate
+            ? `不分享：${sharing.viewers.map((v) => v.name).join('、') || '其他人'}看不到這筆`
+            : `${sharing.viewers.map((v) => v.name).join('、')}看得到這筆`}
+          <span class={'switch sm' + (isPrivate ? ' on' : '')} aria-hidden="true" />
+        </button>
+      )}
 
       <button class="btn primary big" type="submit" disabled={!valid || busy}>
         {busy ? '儲存中…' : submitLabel}

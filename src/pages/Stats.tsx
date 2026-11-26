@@ -5,6 +5,7 @@ import { addDays, daysBetween, getPeriod, money, parseYmd, sum, today, type Peri
 import type { Expense } from '../types';
 import { TrendChart } from '../components/TrendChart';
 import { ExpenseRow } from '../components/ExpenseRow';
+import { PersonSwitch, usePersonCategories } from '../components/PersonSwitch';
 import { EditExpenseSheet } from '../components/EditExpenseSheet';
 import { Dot } from '../components/CategoryDot';
 
@@ -15,7 +16,11 @@ const KINDS: { id: PeriodKind; label: string; unit: string }[] = [
 ];
 
 export function StatsPage() {
-  const { byId, toast } = useApp();
+  const { me, toast } = useApp();
+  const [person, setPerson] = useState(me);
+  const cats = usePersonCategories(person);
+  const byId = cats?.byId ?? new Map();
+  const isMe = person === me;
   const [kind, setKind] = useState<PeriodKind>('month');
   const [offset, setOffset] = useState(0);
   const [focus, setFocus] = useState<string | null>(null);
@@ -29,11 +34,11 @@ export function StatsPage() {
   useEffect(() => {
     let alive = true;
     setRows(null);
-    listExpenses(prev.start, period.end)
+    listExpenses(person, prev.start, period.end)
       .then((r) => alive && setRows(r))
       .catch((e) => { toast(`載入失敗：${(e as Error).message}`); alive && setRows([]); });
     return () => { alive = false; };
-  }, [period, prev, toast, reloadKey]);
+  }, [person, period, prev, toast, reloadKey]);
 
   const t = today();
   const totalDays = daysBetween(period.start, period.end) + 1;
@@ -75,6 +80,7 @@ export function StatsPage() {
 
   return (
     <>
+      <PersonSwitch value={person} onChange={(id) => { setPerson(id); setFocus(null); }} />
       <div class="segmented" role="tablist">
         {KINDS.map((k) => (
           <button key={k.id} role="tab" aria-selected={kind === k.id} class={kind === k.id ? 'on' : ''}
@@ -88,7 +94,7 @@ export function StatsPage() {
         <button class="icon-btn" onClick={() => setOffset(offset + 1)} disabled={offset >= 0} aria-label={`下一${unit}`}>›</button>
       </div>
 
-      {rows === null ? (
+      {rows === null || !cats ? (
         <p class="muted center-pad">載入中…</p>
       ) : future ? null : (
         <>
@@ -156,7 +162,7 @@ export function StatsPage() {
               <div class="card list">
                 {stats.top.map((e) => {
                   const d = parseYmd(e.spent_on);
-                  return <ExpenseRow key={e.id} e={e} meta={`${d.getMonth() + 1}/${d.getDate()}`} onClick={() => setEditing(e)} />;
+                  return <ExpenseRow key={e.id} e={e} meta={`${d.getMonth() + 1}/${d.getDate()}`} cats={byId} onClick={isMe ? () => setEditing(e) : undefined} />;
                 })}
               </div>
             </section>

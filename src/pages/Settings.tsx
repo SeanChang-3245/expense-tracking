@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks';
-import { countExpensesInCategory, createCategory, deleteCategory, listExpenses, updateCategory } from '../api';
+import { useEffect, useState } from 'preact/hooks';
+import { countExpensesInCategory, createCategory, deleteCategory, listExpenses, saveDisplayName, updateCategory } from '../api';
 import { useApp } from '../context';
 import { supabase } from '../supabase';
 import { today } from '../format';
@@ -10,8 +10,21 @@ import { Dot } from '../components/CategoryDot';
 
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
 
-export function SettingsPage({ email }: { email: string }) {
-  const { categories, byId, reloadCategories, toast } = useApp();
+export function SettingsPage() {
+  const { me, email, categories, byId, reloadCategories, sharing, reloadSharing, toast } = useApp();
+  const [name, setName] = useState(sharing.myName ?? '');
+  useEffect(() => { setName(sharing.myName ?? ''); }, [sharing.myName]);
+  const [savingName, setSavingName] = useState(false);
+
+  const saveName = async (e: Event) => {
+    e.preventDefault();
+    const n = name.trim();
+    if (!n) return;
+    setSavingName(true);
+    try { await saveDisplayName(me, n); await reloadSharing(); toast('已更新名稱'); }
+    catch (err) { toast(`儲存失敗：${(err as Error).message}`); }
+    setSavingName(false);
+  };
   const [editing, setEditing] = useState<Category | 'new' | null>(null);
   const [exporting, setExporting] = useState(false);
   const [geoOn, setGeoOn] = useState(geoEnabled);
@@ -36,7 +49,7 @@ export function SettingsPage({ email }: { email: string }) {
   const exportCsv = async () => {
     setExporting(true);
     try {
-      const rows = await listExpenses('1900-01-01', '2999-12-31');
+      const rows = await listExpenses(me, '1900-01-01', '2999-12-31');
       const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
       const lines = [['日期', '分類', '金額', '備註'].join(',')];
       for (const r of [...rows].reverse()) {
@@ -97,6 +110,38 @@ export function SettingsPage({ email }: { email: string }) {
           <button class="row" onClick={exportCsv} disabled={exporting}>
             <span class="row-main"><span class="row-title">{exporting ? '匯出中…' : '匯出 CSV'}</span></span>
           </button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>共享</h2></div>
+        <div class="card list">
+          <form class="row static name-row" onSubmit={saveName}>
+            <span class="row-main">
+              <span class="row-sub">你的名稱（對方看到的）</span>
+              <input class="plain-input" placeholder="例如：小明" maxLength={20} value={name}
+                onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+            </span>
+            {name.trim() && name.trim() !== (sharing.myName ?? '') && (
+              <button class="link" disabled={savingName}>儲存</button>
+            )}
+          </form>
+          {sharing.canView.length + sharing.viewers.length === 0 ? (
+            <div class="row static"><span class="row-main"><span class="row-sub">
+              還沒有和任何人共享。設定方式見 README 的「共享」說明。
+            </span></span></div>
+          ) : (
+            <>
+              <div class="row static"><span class="row-main">
+                <span class="row-title">你看得到</span>
+                <span class="row-sub">{sharing.canView.map((p) => p.name).join('、') || '沒有人'}的帳</span>
+              </span></div>
+              <div class="row static"><span class="row-main">
+                <span class="row-title">看得到你的帳</span>
+                <span class="row-sub">{sharing.viewers.map((p) => p.name).join('、') || '沒有人'} · 位置與標為 🔒 的記錄不會分享</span>
+              </span></div>
+            </>
+          )}
         </div>
       </section>
 

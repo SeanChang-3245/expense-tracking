@@ -1,7 +1,9 @@
-import type { Streak } from '../streak';
+import type { Person, Streak } from '../types';
 
-export function StreakBar({ streak, hasExpenseToday, noSpendToday, busy, onMarkNoSpend, onUnmarkNoSpend }: {
+export function StreakBar({ streak, others, hasExpenseToday, noSpendToday, busy, onMarkNoSpend, onUnmarkNoSpend }: {
   streak: Streak;
+  /** People who share with me, with their streaks. */
+  others: { person: Person; streak: Streak }[];
   hasExpenseToday: boolean;
   noSpendToday: boolean;
   busy: boolean;
@@ -30,6 +32,18 @@ export function StreakBar({ streak, hasExpenseToday, noSpendToday, busy, onMarkN
         <div class="streak-sub">
           <span class="muted">今天標記為沒有花費</span>
           <button class="link" disabled={busy} onClick={onUnmarkNoSpend}>取消</button>
+        </div>
+      )}
+      {others.length > 0 && (
+        <div class="streak-others">
+          {others.map(({ person, streak: o }) => (
+            <span key={person.id} class={'streak-other' + (o.loggedToday ? '' : ' pending')}>
+              <span>{person.name}</span>
+              <span class="streak-flame-sm" aria-hidden="true">🔥</span>
+              <strong>{o.current} 天</strong>
+              <span class="muted">{o.loggedToday ? '· 今天記了' : '· 今天還沒記'}</span>
+            </span>
+          ))}
         </div>
       )}
     </div>

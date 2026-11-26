@@ -6,9 +6,13 @@ import type { Expense } from '../types';
 import { ExpenseRow } from '../components/ExpenseRow';
 import { EditExpenseSheet } from '../components/EditExpenseSheet';
 import { Dot } from '../components/CategoryDot';
+import { PersonSwitch, usePersonCategories } from '../components/PersonSwitch';
 
 export function ListPage() {
-  const { categories, toast } = useApp();
+  const { me, toast } = useApp();
+  const [person, setPerson] = useState(me);
+  const cats = usePersonCategories(person);
+  const isMe = person === me;
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -18,9 +22,9 @@ export function ListPage() {
 
   const load = useCallback(async () => {
     setRows(null);
-    try { setRows(await listExpenses(period.start, period.end)); }
+    try { setRows(await listExpenses(person, period.start, period.end)); }
     catch (e) { toast(`載入失敗：${(e as Error).message}`); setRows([]); }
-  }, [period, toast]);
+  }, [person, period, toast]);
   useEffect(() => { load(); }, [load]);
 
   const shown = useMemo(() => {
@@ -40,11 +44,12 @@ export function ListPage() {
 
   const usedCats = useMemo(() => {
     const ids = new Set((rows ?? []).map((r) => r.category_id));
-    return categories.filter((c) => ids.has(c.id));
-  }, [rows, categories]);
+    return (cats?.list ?? []).filter((c) => ids.has(c.id));
+  }, [rows, cats]);
 
   return (
     <>
+      <PersonSwitch value={person} onChange={(id) => { setPerson(id); setFilter(null); }} />
       <div class="period-nav">
         <button class="icon-btn" onClick={() => setOffset(offset - 1)} aria-label="上個月">‹</button>
         <div class="period-label">
@@ -69,7 +74,7 @@ export function ListPage() {
         </div>
       )}
 
-      {rows === null ? (
+      {rows === null || !cats ? (
         <p class="muted center-pad">載入中…</p>
       ) : groups.length === 0 ? (
         <p class="muted center-pad">這個月還沒有記錄</p>
@@ -81,7 +86,9 @@ export function ListPage() {
               <span class="muted">{money(sum(items))}</span>
             </div>
             <div class="card list">
-              {items.map((e) => <ExpenseRow key={e.id} e={e} onClick={() => setEditing(e)} />)}
+              {items.map((e) => (
+                <ExpenseRow key={e.id} e={e} cats={cats?.byId} onClick={isMe ? () => setEditing(e) : undefined} />
+              ))}
             </div>
           </section>
         ))
