@@ -7,6 +7,7 @@
 - **分析**：週／月／年總支出、與上期同期比較、分類占比、每日（每月）趨勢、最大筆支出；點分類可聚焦
 - **連續記帳天數**：記帳頁顯示目前與最長的連續天數；沒花錢的日子可以按「今天沒花錢」，不會中斷
 - **位置帶入備註**：記帳時儲存 GPS 位置；之後在 100 公尺內記帳時，依所選分類帶入該分類在附近最近一次的備註（每個分類各自記憶）（可在設定關閉）
+- **共享**：和另一個人互相查看記帳（唯讀）與連續天數；位置與標為 🔒 的記錄不分享
 - **設定**：自訂分類（名稱、emoji、顏色、排序、隱藏）、匯出 CSV
 
 技術：Vite + Preact + TypeScript，Supabase（Postgres + Auth + Row Level Security）。
@@ -35,6 +36,16 @@
 ### 3. 手機
 
 用 Safari（iPhone）或 Chrome（Android）打開網址 → 分享 →「加入主畫面」，就能像 App 一樣全螢幕使用。
+
+## 共享（選用）
+
+讓兩個帳號互相看到彼此的記帳與連續天數。只能看，不能改；位置資料與記帳時標為「不分享」🔒 的記錄不會給對方看到。
+
+1. **Authentication → Users → Add user**：幫對方建立帳號（email + 密碼，勾選 *Auto Confirm User*）。
+2. 打開 [`supabase/pair.sql`](supabase/pair.sql)，把兩個 email 換成你們的，在 **SQL Editor** 執行。
+3. 兩人各自到 App 的「設定 → 共享」填上名稱。
+
+取消共享：在 SQL Editor 執行 `delete from public.shares;`。
 
 ## 本機開發
 
