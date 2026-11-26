@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { createExpense, findNotesNear, listExpenses } from '../api';
+import { createExpense, findNotesNear, listExpenseDays, listExpenses } from '../api';
+import { computeStreak } from '../streak';
+import { StreakBar } from '../components/StreakBar';
 import { geoEnabled, getPosition, type Position } from '../geo';
 import { useApp } from '../context';
 import { money, sum, today } from '../format';
@@ -15,6 +17,7 @@ export function AddPage() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [pos, setPos] = useState<Position | null>(null);
   const [suggestions, setSuggestions] = useState<Record<string, string> | null>(null);
+  const [days, setDays] = useState<Set<string> | null>(null);
 
   // A fresh fix for every new entry (formKey changes after each save).
   useEffect(() => {
@@ -36,11 +39,13 @@ export function AddPage() {
   const loadToday = useCallback(async () => {
     const t = today();
     try { setTodays(await listExpenses(t, t)); } catch { /* non-critical */ }
+    try { setDays(await listExpenseDays()); } catch { /* non-critical */ }
   }, []);
   useEffect(() => { loadToday(); }, [loadToday]);
 
   return (
     <>
+      {days && <StreakBar streak={computeStreak(days, today())} />}
       <ExpenseForm
         key={formKey}
         submitLabel="記一筆"
@@ -52,7 +57,14 @@ export function AddPage() {
             toast(`儲存失敗：${(e as Error).message}`);
             throw e;
           }
-          toast(`已記下 ${money(v.amount)} · ${byId.get(v.category_id)?.name ?? ''}`);
+          let msg = `已記下 ${money(v.amount)} · ${byId.get(v.category_id)?.name ?? ''}`;
+          if (days) {
+            const t = today();
+            const before = computeStreak(days, t);
+            const after = computeStreak(new Set(days).add(v.spent_on), t);
+            if (after.current > before.current && after.loggedToday) msg += ` · 🔥 連續 ${after.current} 天`;
+          }
+          toast(msg);
           setFormKey((k) => k + 1);
           loadToday();
         }}

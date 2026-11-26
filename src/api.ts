@@ -129,3 +129,16 @@ export async function findNotesNear(pos: Position): Promise<Record<string, strin
   }
   return out;
 }
+
+/** Every distinct day that has at least one expense. */
+export async function listExpenseDays(): Promise<Set<string>> {
+  const PAGE = 1000;
+  const days = new Set<string>();
+  for (let offset = 0; ; offset += PAGE) {
+    const rows = check(
+      await supabase.from('expenses').select('spent_on').order('spent_on').range(offset, offset + PAGE - 1),
+    ) as { spent_on: string }[];
+    for (const r of rows) days.add(r.spent_on);
+    if (rows.length < PAGE) return days;
+  }
+}
